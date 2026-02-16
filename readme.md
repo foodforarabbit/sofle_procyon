@@ -1,4 +1,4 @@
-# Sofle Custom Trackpad
+# Sofle Procyon
 
 A Sofle-based split keyboard with an integrated [Procyon](https://github.com/george-norton/procyon) trackpad, RGB matrix lighting, and rotary encoder.
 
@@ -49,13 +49,13 @@ The standard QMK repo does not have the MaxTouch driver. Add george-norton's for
 QMK expects keyboard files inside its `keyboards/` directory. Create a symlink so that the QMK build system can find this repo directly -- this way you always edit files in this repo and changes are immediately available for compilation:
 
     mkdir -p ~/qmk_firmware/keyboards/foodforarabbit
-    ln -s /path/to/sofle_procyon ~/qmk_firmware/keyboards/foodforarabbit/sofle_custom_trackpad
+    ln -s /path/to/sofle_procyon ~/qmk_firmware/keyboards/foodforarabbit/sofle_procyon
 
-Replace `/path/to/sofle_procyon` with the absolute path to this repository (e.g. `$HOME/Downloads/sofle_procyon`).
+Replace `/path/to/sofle_procyon` with the absolute path to this repository (e.g. `$HOME/foodforarabbit/sofle_procyon`).
 
 You can verify it worked:
 
-    ls ~/qmk_firmware/keyboards/foodforarabbit/sofle_custom_trackpad/keyboard.json
+    ls ~/qmk_firmware/keyboards/foodforarabbit/sofle_procyon/keyboard.json
 
 ### 4. Add the ARM toolchain to your PATH
 
@@ -66,9 +66,9 @@ The Homebrew-installed ARM toolchain needs to be on your PATH for compilation. A
 ### 5. Compile the firmware
 
     cd ~/qmk_firmware
-    qmk compile -kb foodforarabbit/sofle_custom_trackpad -km default
+    qmk compile -kb foodforarabbit/sofle_procyon -km default
 
-If successful, this produces a `.uf2` file in the QMK firmware root directory (e.g. `foodforarabbit_sofle_custom_trackpad_default.uf2`).
+If successful, this produces a `.uf2` file in the QMK firmware root directory (e.g. `foodforarabbit_sofle_procyon_default.uf2`).
 
 ## Backing Up Current Firmware
 
@@ -102,7 +102,7 @@ For each half:
 2. Enter bootloader mode on the half you want to flash (see below)
 3. Flash using `picotool` (recommended):
 
-        picotool load foodforarabbit_sofle_custom_trackpad_default.uf2
+        picotool load foodforarabbit_sofle_procyon_default.uf2
         picotool reboot
 
 4. Repeat for the other half
@@ -142,7 +142,7 @@ Defined in `keymaps/default/keymap.c`:
 
 | Parameter | Default | Description |
 |---|---|---|
-| `TRACKPAD_JITTER_THRESHOLD` | 3 | Deltas at or below this are dropped (prevents cursor jump on finger lift-off) |
+| `TRACKPAD_JITTER_THRESHOLD` | 5 | Deltas at or below this are dropped (prevents cursor jump on finger lift-off) |
 | `TRACKPAD_SLOW_LIMIT` | 12 | Deltas up to this are in the precision zone |
 | `TRACKPAD_SLOW_SPEED` | 50 | Speed in the precision zone (% of raw) -- lower = more precise |
 | `TRACKPAD_FAST_SPEED` | 140 | Speed above the precision zone (% of raw) -- higher = more acceleration |
