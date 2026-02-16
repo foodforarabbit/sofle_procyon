@@ -77,7 +77,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  * TRACKPAD_FAST_SPEED        Speed above the precision zone (percent of raw).
  *                            Higher = more acceleration on fast swipes.
  */
-#define TRACKPAD_JITTER_THRESHOLD  3
+#define TRACKPAD_JITTER_THRESHOLD  5
 #define TRACKPAD_SLOW_LIMIT       12
 #define TRACKPAD_SLOW_SPEED       50
 #define TRACKPAD_FAST_SPEED      140
@@ -121,8 +121,8 @@ static inline int8_t clamp_scroll(int8_t val) {
 report_mouse_t pointing_device_task_user(report_mouse_t mouse_report) {
     mouse_report.x = trackpad_curve(mouse_report.x);
     mouse_report.y = trackpad_curve(mouse_report.y);
-    mouse_report.h = clamp_scroll(mouse_report.h);
-    mouse_report.v = clamp_scroll(mouse_report.v);
+    mouse_report.h = clamp_scroll(-mouse_report.h);
+    mouse_report.v = clamp_scroll(-mouse_report.v);
     return mouse_report;
 }
 

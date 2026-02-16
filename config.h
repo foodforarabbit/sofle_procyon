@@ -32,6 +32,11 @@
 // 35 gives an Apple-trackpad-like scroll feel.
 #define DIGITIZER_SCROLL_DIVISOR 35
 
+// Tap detection: how far the finger can move (in sensor units) during a tap
+// and still be recognized as a click. Default is 25, which is too tight --
+// slight finger slip during a tap exceeds it and the click is lost.
+#define DIGITIZER_MOUSE_TAP_DISTANCE 50
+
 #define I2C_DRIVER I2CD1
 #define I2C1_SDA_PIN GP2
 #define I2C1_SCL_PIN GP3
