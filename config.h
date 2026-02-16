@@ -28,6 +28,10 @@
 #define CRC8_USE_TABLE
 #define CRC8_OPTIMIZE_SPEED
 
+// Scroll sensitivity: higher = less sensitive. Default is 10.
+// 35 gives an Apple-trackpad-like scroll feel.
+#define DIGITIZER_SCROLL_DIVISOR 35
+
 #define I2C_DRIVER I2CD1
 #define I2C1_SDA_PIN GP2
 #define I2C1_SCL_PIN GP3
@@ -36,6 +40,3 @@
 #define DIGITIZER_MOTION_PIN_ACTIVE_LOW yes
 #define PROCYON_57_80
 
-
-// Reduce soft serial speed: Work around rp2040 issues
-#define SELECT_SOFT_SERIAL_SPEED 4

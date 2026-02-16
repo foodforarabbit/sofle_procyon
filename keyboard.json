@@ -155,6 +155,9 @@
   },
   "split": {
     "enabled": true,
+    "serial": {
+      "speed": 4
+    },
     "matrix_pins": {
       "right": {
         "cols": ["GP10", "GP9", "GP8", "GP7", "GP6", "GP5"],
