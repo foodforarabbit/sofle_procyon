@@ -16,6 +16,7 @@ A Sofle-based split keyboard with an integrated [Procyon](https://github.com/geo
 * Integrated trackpad (Procyon / MaxTouch digitizer) on the right half
 * Full-duplex serial communication between halves
 * VIA support for easy keymap configuration
+* VIAL support for real-time keymap editing without loading a definition file
 * Caps Word support
 
 ## Prerequisites
@@ -131,6 +132,42 @@ This keyboard has VIA support enabled. To use VIA for keymap customization:
 6. Remap keys, configure layers, and adjust lighting as needed
 
 Changes made in VIA are saved directly to the keyboard's EEPROM and persist across reboots.
+
+## VIAL Support
+
+[VIAL](https://get.vial.today/) is an open-source alternative to VIA that automatically recognises your keyboard -- no draft definition file needed.
+
+### Building VIAL Firmware
+
+VIAL requires the [vial-qmk](https://github.com/foodforarabbit/vial-qmk) fork instead of upstream QMK. Our fork includes george-norton's MaxTouch driver merged into the `vial-procyon` branch.
+
+    cd ~/foodforarabbit/vial-qmk
+    git checkout vial-procyon
+    make git-submodule
+
+Symlink this keyboard repo into vial-qmk (same idea as with standard QMK):
+
+    mkdir -p ~/foodforarabbit/vial-qmk/keyboards/foodforarabbit
+    ln -s /path/to/sofle_procyon ~/foodforarabbit/vial-qmk/keyboards/foodforarabbit/sofle_procyon
+
+Set the ARM toolchain PATH, then compile:
+
+    export PATH="/opt/homebrew/opt/arm-none-eabi-gcc@8/bin:/opt/homebrew/opt/arm-none-eabi-binutils/bin:$PATH"
+    cd ~/foodforarabbit/vial-qmk
+    qmk compile -kb foodforarabbit/sofle_procyon -km vial
+
+This produces `foodforarabbit_sofle_procyon_vial.uf2`. Flash both halves the same way as the default firmware (see Flashing section above).
+
+### Using VIAL
+
+1. Flash the VIAL firmware to both halves
+2. Download the [VIAL desktop app](https://get.vial.today/) or use the [web version](https://vial.rocks/)
+3. Connect the keyboard -- VIAL will detect it automatically
+4. Remap keys, configure layers, and adjust settings in real time
+
+### VIAL Unlock
+
+For security, some advanced features (e.g. reading the key matrix) require unlocking VIAL. Hold **ESC** (left half, top-left) + **Enter** (right half) simultaneously when prompted.
 
 ## Trackpad & Scroll Tuning
 
