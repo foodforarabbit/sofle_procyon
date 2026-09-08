@@ -126,6 +126,37 @@ report_mouse_t pointing_device_task_user(report_mouse_t mouse_report) {
     return mouse_report;
 }
 
+/*
+ * MaxTouch debug tunnel -- lets the maxtouch debug protocol coexist with
+ * VIA/Vial on the single raw-HID endpoint.
+ *
+ * VIA owns raw_hid_receive and forwards any command id it does not
+ * recognise to raw_hid_receive_kb, then echoes the (possibly modified)
+ * buffer back to the host. VIA's own command ids are 0x01-0x13, 0xFE
+ * (Vial) and 0xFF (unhandled), so we claim 0x4D ('M') as a tunnel prefix:
+ * the host wraps a maxtouch debug packet as [0x4D, <packet...>] and gets
+ * the reply back with the same prefix. Vial GUI traffic is unaffected.
+ *
+ * Host-side note: because the prefix eats one byte of the 32-byte report,
+ * READ/WRITE payloads through the tunnel max out at 0x1b (27) bytes, not
+ * the native 0x1c -- the driver rejects oversized requests with
+ * MAXTOUCH_DEBUG_INVALID_LENGTH.
+ */
+#if defined(MAXTOUCH_DEBUG) && defined(VIA_ENABLE)
+#    include "via.h"
+#    include "drivers/sensors/maxtouch.h"
+
+#    define MXT_TUNNEL_PREFIX 0x4D
+
+void raw_hid_receive_kb(uint8_t *data, uint8_t length) {
+    if (data[0] == MXT_TUNNEL_PREFIX) {
+        maxtouch_debug_hid_receive(data + 1, length - 1);
+    } else {
+        data[0] = id_unhandled;
+    }
+}
+#endif
+
 #if defined(ENCODER_MAP_ENABLE)
 const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
     [_BASE] = { ENCODER_CCW_CW(MS_WHLD, MS_WHLU), ENCODER_CCW_CW(KC_AUDIO_VOL_UP, KC_AUDIO_VOL_DOWN) },

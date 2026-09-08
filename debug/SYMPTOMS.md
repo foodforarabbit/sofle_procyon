@@ -35,6 +35,10 @@ garbage.
 Planned fix: 1-frame buffering in `pointing_device_task_user` — hold each frame
 and discard it if the next event is a lift.
 
+Upstream status (MEASURED 2026-09-08, see `UPSTREAMS.md`): no existing report
+or fix anywhere; closest is ploopyco/trackpad#3 (two rapid taps merge into one
+motion — adjacent mechanism, open, unanswered). The fix will be ours.
+
 ---
 
 ## Suspected, from the plan — NOT yet confirmed by observation

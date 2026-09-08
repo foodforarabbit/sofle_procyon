@@ -14,9 +14,9 @@ Three keyboards in that fork use this sensor: `georgen/peacock` (his own board),
 | `MXT_TOUCH_HYST` | 10 | **8** | **6** |
 | `MXT_INTERNAL_TOUCH_HYST` | 5 | **4** | **3** |
 | `MXT_INTERNAL_TOUCH_THRESHOLD` | 10 | 10 | 8 |
-| `MXT_ACTIVE_ACQUISITION_INTERVAL` | default | **255** (free-run) | **255** |
-| `MXT_ACTIVE_SYNCS_PER_X` | default | 20 | 40 |
-| `MXT_LOW_PASS_FILTER_COEFFICIENT` | unset | unset | **10** |
+| `MXT_ACTIVE_ACQUISITION_INTERVAL` | **255** (corrected 2026-09-08 — set by the shared procyon preset, was listed as "default") | **255** (free-run) | **255** |
+| `MXT_ACTIVE_SYNCS_PER_X` | 0 (driver default) | 20 | 40 |
+| `MXT_LOW_PASS_FILTER_COEFFICIENT` | unset | unset | **10** (with `MXT_T65_LENS_BENDING_ENABLE` — the coefficient only takes effect when T65 is enabled, `maxtouch.c:456-462`) |
 | `MXT_CHARGE_TIME` | default | 10 | — |
 
 ## What this actually tells us
@@ -26,10 +26,11 @@ against our 10/5. Two independently tuned boards, same author, both below us.
 That is corroboration of the plan's S3 diagnosis from a source that had no
 knowledge of our problem.
 
-**Both set `ACTIVE_ACQUISITION_INTERVAL 255` (free-run, ~300 Hz).** We do not.
-More frequent polling means smaller, more frequent deltas — which is
-mechanically the opposite of stick-then-jump. This may matter more than the
-hysteresis numbers and it is a one-line change.
+~~**Both set `ACTIVE_ACQUISITION_INTERVAL 255` (free-run, ~300 Hz).** We do
+not.~~ **CORRECTED 2026-09-08: we DO — the shared preset in
+`drivers/sensors/procyon.h` sets 255.** The free-run recommendation in
+STRATEGY.md's Flash 3 batch was a no-op. What the siblings actually have that
+we lack: `MXT_ACTIVE_SYNCS_PER_X` 20/40 (ours 0), and pavonis's T65+low-pass.
 
 **pavonis uses a sensor-side low-pass (`COEFFICIENT 10`); we use none.** Our
 plan plans a *firmware-side* EMA to fix S1. If the sensor can do it, that is

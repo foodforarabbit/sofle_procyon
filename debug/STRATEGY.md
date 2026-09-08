@@ -182,3 +182,63 @@ So the one flash that adds runtime keycodes should declare **generously** —
 every knob we might want (CPI up/down, scroll up/down, jitter threshold
 up/down, smoothing up/down, reset, dump-current-values) — because an unused
 declared keycode costs nothing but a missing one costs a flash.
+
+---
+
+# CORRECTION 2, 2026-09-08 — blocker resolved empirically; one more factual error fixed
+
+**The executable plan now lives in `PLAN.md`. This file is kept for
+rationale.** Two updates:
+
+## 1. The raw_hid_receive blocker is resolved — both, in one firmware
+
+MEASURED by building, not by reasoning:
+
+- Stock `MAXTOUCH_DEBUG=yes` + vial keymap **fails to link**: `multiple
+  definition of 'raw_hid_receive'` (`via.o` vs `maxtouch.o`). So the failure
+  mode is the loud one, not silent hijacking.
+- Candidate resolution 1 (VIA's `via_custom_value_command` channel) **does not
+  exist in this fork** — that API is VIA protocol 0x0C; we ship 0x0009
+  (`via.h:42`). Candidate 2 is the winner: VIA forwards every unrecognised
+  command id to the weak hook `raw_hid_receive_kb` and echoes the reply buffer
+  (`via.c:219-465`). The debug protocol's opcodes 0x01-0x03 collide with VIA's
+  own ids, so packets are wrapped under prefix byte `0x4D`.
+- Implemented and build-verified (`.uf2` produced): vial-qmk branch
+  `debug-vial-tunnel` extracts the debug handler and exposes it as
+  `maxtouch_debug_hid_receive()` under `VIA_ENABLE`; `keymaps/vial/keymap.c`
+  on this branch tunnels via `raw_hid_receive_kb`. Vial keeps remapping, the
+  debug protocol keeps register R/W. Constraint 3 survives.
+- Cost: the maxtouch-debug GUI speaks the unprefixed protocol and cannot use
+  the tunnel — sensor sessions are driven by a small host script (which was
+  needed for register WRITES anyway, since the GUI's write UI is unfinished).
+  The GUI-with-heatmap remains available as a separate non-Vial debug keymap,
+  2-flash detour, see PLAN.md.
+
+## 2. Free-run acquisition is ALREADY enabled — Flash 3's headline item was a no-op
+
+MEASURED: `vial-qmk/drivers/sensors/procyon.h` (pulled in via our
+`PROCYON_57_80` define) already sets `MXT_ACTIVE_ACQUISITION_INTERVAL 255`
+(~300 Hz free-run), plus `MXT_CONFTHR 5` and `MXT_MOVE_HYSTERESIS_NEXT 16`.
+The claim above that "both sibling boards enable free-run and we do not" is
+wrong, and the recommended first sensor batch would have flashed a value that
+was already set. The corrected reference table is in `REFERENCE-PRESETS.md`;
+the deltas that actually remain vs the siblings: touch/internal hysteresis
+(ours higher), `MXT_ACTIVE_SYNCS_PER_X` (ours 0, theirs 20/40), T65+low-pass
+(ours off, pavonis on), and `MOVE_HYSTERESIS_NEXT` (ours 16 vs driver
+default 4 — the preset itself raised it, prime S3 suspect).
+
+Also: `MXT_LOW_PASS_FILTER_COEFFICIENT` alone does nothing — it is only
+written inside the `#ifdef MXT_T65_LENS_BENDING_ENABLE` block
+(`maxtouch.c:456-462`, MEASURED). Enable both, or write T65 live over the
+tunnel.
+
+And one premise correction: `TRACKPAD_TUNING_PLAN.md`, referenced throughout
+these docs, does not exist anywhere — not in this worktree, not in the base
+checkout, not on any local or remote branch (MEASURED via `git ls-tree` on
+all branches). Its "plan items 6-8" survive only as the references here.
+`PLAN.md` now supersedes it as the plan of record.
+
+Since sensor registers are writable the moment Flash 1 lands, the old
+Flash 2/Flash 3 split collapses: PLAN.md merges the instrument and the keymap
+knobs into one behavior-neutral flash, runs all tuning live, and reserves the
+second flash for baking in winners.

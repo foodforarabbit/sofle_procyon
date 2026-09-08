@@ -17,9 +17,26 @@ both are tuned by the driver's author. Their configs are in
 `REFERENCE-PRESETS.md`. maxtouch-debug names those same two boards as its
 targets, which means **the tool was built against hardware very close to ours**.
 
-## Where to search for existing reports of our symptoms
+## Upstream search — DONE 2026-09-08, all locations MEASURED
 
-Not yet done — worth an hour before changing anything:
+**Bottom line: no upstream fix exists for S1 or S2.** Nobody has even filed
+the plain liftoff-jump report. We write the first fix, not inherit one.
+
+| location | S1 (jitter) | S2 (liftoff) |
+|---|---|---|
+| george-norton/qmk_firmware issues | zero issues exist in the repo | zero |
+| george-norton/qmk_firmware PRs (9 total) | PRs #4/#5/#6 (ploopyco, Sep 2024): noise-object tuning — T7 free-run, T42 suppression, T56/T65 ("purportedly help with noise"), T80 retransmission "based on tester feedback". Indirectly S1-relevant. | nothing |
+| george-norton/procyon | README (the only explicit S1 advice anywhere): "If your sensor is jittery... increase the touch threshold"; raise transmit gain to make headroom | nothing |
+| george-norton/maxtouch-debug issues | zero issues | zero |
+| Ploopy community (pavonis) | nothing (reddit/blog/reviews searched; no jitter complaints) | ploopyco/trackpad#3 "Mouse jumping due to rapid input" (open Jul 2025, unanswered) — adjacent (two rapid taps merge into one motion), not the single-finger liftoff jump |
+| multitouch_experiment commits | commit-search for liftoff/jitter/smoothing: 0 hits. e529af2 + c713e8c fix *stuck fingers* (the opposite failure); 6165918 "Fix jumping when adjusting DPI" is unrelated | same |
+
+REASONED from the above: the driver has no liftoff-motion suppression and no
+delta-smoothing code path at all — both would be new contributions. The
+sanctioned knobs are maXTouch object registers (thresholds, gain, T56/T65/T80)
+— which, per STRATEGY.md CORRECTION and PLAN.md, we can now write live.
+
+Original search list, kept for reference:
 
 1. **Issues + PRs on `george-norton/qmk_firmware`**, especially the
    `multitouch_experiment` branch. Search terms that match our symptoms:
@@ -31,6 +48,7 @@ Not yet done — worth an hour before changing anything:
    a shipping product means someone has already fought S1 and S2.
 
 S2 in particular (pointer moves on liftoff) is a *generic* capacitive-trackpad
-problem, not something specific to our build. It is very likely already
-discussed upstream, possibly already fixed in the driver. **Check before writing
-the 1-frame buffer** the plan proposes — inheriting a fix beats writing one.
+problem, not something specific to our build. ~~It is very likely already
+discussed upstream, possibly already fixed in the driver.~~ Checked 2026-09-08:
+it is not — see the table above. The 1-frame buffer (or a sensor-side
+suppression) has to be ours.
