@@ -116,3 +116,69 @@ Inheriting a fix beats writing one.
 - **Don't write the 1-frame liftoff buffer until you have measured the liftoff
   frames.** If the bogus delta is not there, the buffer adds a frame of latency
   to every gesture for nothing.
+
+---
+
+# CORRECTION 2026-09-08 — sensor params ARE runtime-writable
+
+Everything above about "sensor params need a flash" is **WRONG**, and the
+correction is the best news in this document. Measured by reading
+`vial-qmk/drivers/sensors/maxtouch.c:590-675`.
+
+With `MAXTOUCH_DEBUG = yes` the firmware exposes a **raw-HID protocol** with:
+
+| opcode | what it does |
+|---|---|
+| `MAXTOUCH_DEBUG_READ` | `i2c_read_register16` at **any** address, up to 0x1c bytes |
+| `MAXTOUCH_DEBUG_WRITE` | `i2c_write_register16` at **any** address ← **live register writes** |
+| `MAXTOUCH_DEBUG_SET_MOUSE_MODE` | toggle mouse reports at runtime |
+| `MAXTOUCH_DEBUG_REBOOT_BOOTLOADER` | enter bootloader over USB, no reset button |
+
+So **one flash buys live read/write of every sensor register over USB.** No
+further flashes for sensor tuning at all. The `maxtouch-debug` README describes
+register writing as "planned", but the **firmware side is already implemented** —
+if the GUI lacks a write field, the protocol can be driven by a ~50-line script
+over raw HID.
+
+## THE BLOCKER THIS CREATES — resolve before flashing anything
+
+`maxtouch.c:605` defines **`raw_hid_receive`**. Vial **also** owns
+`raw_hid_receive`, and our vial keymap has `VIA_ENABLE = yes` +
+`VIAL_ENABLE = yes`.
+
+Two consumers, one callback. So `MAXTOUCH_DEBUG = yes` on the vial keymap will
+either fail to link (duplicate symbol) or one will silently hijack the other.
+
+**This is exactly the constraint Ryan set** — the keyboard must stay usable and
+keymapping should be drivable from Vial while tuning. If enabling the debug
+protocol kills Vial, we lose remapping; if we keep Vial, we may lose live
+tuning. **Establishing which, and whether they can coexist, is the first task.**
+
+Candidate resolutions, in order of preference — all UNVERIFIED:
+
+1. **Route the maxtouch protocol through Vial's custom-command channel**
+   (`via_custom_value_command` / Vial's raw-HID extension) instead of claiming
+   `raw_hid_receive`. Best outcome: both work, one firmware, zero compromise.
+2. **Check whether Vial's `raw_hid_receive` is weak/overridable**, or whether it
+   forwards unrecognised report IDs to a user hook. If it forwards, we may be
+   able to co-exist with a small patch.
+3. **Two keymaps**: `vial` (normal use) and `debug` (tuning). Costs a flash to
+   switch, but the debug build can still carry a full working keymap — the
+   keyboard stays typeable either way. Fallback, not the goal.
+4. Worst case: accept a tuning firmware where Vial is unavailable, and do
+   remapping in a separate session.
+
+## What this means for key mapping
+
+Vial custom keycodes are declared in `keymaps/vial/vial.json` under
+`customKeycodes`. **Ours declares NONE today** (verified: the file has only
+name / vendorId / productId / matrix / layouts).
+
+The important property: **adding a keycode needs a flash; ASSIGNING one does
+not.** Once a keycode is compiled in and declared in `vial.json`, Vial can bind
+it to any key, any layer, live.
+
+So the one flash that adds runtime keycodes should declare **generously** —
+every knob we might want (CPI up/down, scroll up/down, jitter threshold
+up/down, smoothing up/down, reset, dump-current-values) — because an unused
+declared keycode costs nothing but a missing one costs a flash.
