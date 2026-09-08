@@ -34,11 +34,25 @@ remaining work is ~200 lines in `keymaps/vial/keymap.c`, a JSON block, two
 
 | repo | branch | holds |
 |---|---|---|
-| `foodforarabbit/sofle_procyon` | `trackpad-tuning` | all of `debug/`, this file |
-| `foodforarabbit/vial-qmk` | **`debug-vial-tunnel`** | the ~30-line driver patch that makes the debug protocol coexist with Vial (`8989aa3`) |
+| `foodforarabbit/sofle_procyon` | `trackpad-tuning` | all of `debug/`, this file, and the tunnel |
+| `foodforarabbit/vial-qmk` | `vial-procyon` | **unchanged — build from this, the normal branch** |
 
-**You must have vial-qmk on `debug-vial-tunnel` to build flash 1.** On the
-default branch, `MAXTOUCH_DEBUG = yes` fails to link.
+**vial-qmk needs NO changes.** Ryan's requirement is that the fork stays close
+to what it branched from, so the tunnel lives entirely in
+`keymaps/vial/keymap.c` and `MAXTOUCH_DEBUG` stays `no`. MEASURED: builds and
+links on a clean `vial-procyon`, producing
+`foodforarabbit_sofle_procyon_wt_vial.uf2`.
+
+`origin/debug-vial-tunnel` exists as a record of the driver-patch approach that
+was tried first. **Do not merge it** — it is superseded and would reintroduce
+fork divergence. It also carries a genuine upstream bounds-check fix worth
+sending to george-norton as a PR.
+
+Toolchain note: `arm-none-eabi-gcc@8` is brew keg-only, so it is off PATH.
+Build with:
+```
+export PATH="$(brew --prefix arm-none-eabi-gcc@8)/bin:$(brew --prefix arm-none-eabi-binutils)/bin:$PATH"
+```
 
 Local-only, not in git, recreate if missing: a symlink
 `vial-qmk/keyboards/foodforarabbit/sofle_procyon_wt` → this worktree, so builds
@@ -54,10 +68,12 @@ use the worktree instead of the base checkout.
 2. **Live register writes do NOT survive a power cycle.** The driver rewrites
    config from compiled values at boot. Unplug = universal undo. Nothing is
    real until it's baked in at flash 2 and cold-boot tested.
-3. **`raw_hid_receive` was a hard conflict with Vial** and is solved by the
-   tunnel (prefix byte `0x4D` through Vial's weak `raw_hid_receive_kb` hook).
-   Do not "fix" this by disabling Vial — keeping Vial usable is an explicit
-   requirement.
+3. **`raw_hid_receive` was a hard conflict with Vial** — VIA and maxtouch.c
+   both define it (`multiple definition`, MEASURED). Solved with a tunnel:
+   prefix byte `0x4D` through Vial's weak `raw_hid_receive_kb` hook, with the
+   protocol reimplemented in OUR keymap so the fork stays clean. Do not "fix"
+   this by disabling Vial or by patching the driver — keeping Vial usable AND
+   keeping vial-qmk close to upstream are both explicit requirements.
 4. **Adding a Vial keycode costs a flash; assigning one does not.** That's why
    flash 1 declares 19 knobs, generously.
 5. **Nothing to inherit upstream.** Zero issues across all three

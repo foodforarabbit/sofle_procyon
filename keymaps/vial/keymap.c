@@ -142,15 +142,130 @@ report_mouse_t pointing_device_task_user(report_mouse_t mouse_report) {
  * the native 0x1c -- the driver rejects oversized requests with
  * MAXTOUCH_DEBUG_INVALID_LENGTH.
  */
-#if defined(MAXTOUCH_DEBUG) && defined(VIA_ENABLE)
+/*
+ * MaxTouch register tunnel -- live sensor read/write over USB, alongside Vial.
+ *
+ * WHY THIS LIVES HERE AND NOT IN THE DRIVER. maxtouch.c implements this same
+ * protocol, but under `MAXTOUCH_DEBUG` it defines `raw_hid_receive`, which
+ * VIA/Vial also defines -- they collide at link time
+ * (`multiple definition of raw_hid_receive`, MEASURED). Upstream's own answer
+ * is a separate debug keymap with VIA switched off (peacock and pavonis both
+ * do exactly that), which would cost us Vial remapping while tuning.
+ *
+ * Patching the driver works, but every line in vial-qmk is rebase burden on a
+ * fork that is already 1090 commits divergent. Everything the protocol needs is
+ * public -- `MXT336UD_ADDRESS` and `MXT_I2C_TIMEOUT_MS` from maxtouch.h, the
+ * i2c register helpers, and `digitizer_send_mouse_reports` via extern (which is
+ * how the driver itself reaches it). So we implement it here and leave
+ * `MAXTOUCH_DEBUG = no`: **zero changes to vial-qmk.**
+ *
+ * HOW IT REACHES US. VIA owns raw_hid_receive and forwards command ids it does
+ * not recognise to the weak hook `raw_hid_receive_kb` (via.c:207,284,298),
+ * then echoes the buffer back itself. VIA's ids are 0x01-0x13, 0xFE (Vial),
+ * 0xFF (unhandled), so 0x4D ('M') is free as a tunnel prefix. The host wraps a
+ * packet as [0x4D, <packet...>].
+ *
+ * CONSEQUENCE: the prefix eats one byte, so payloads cap at 0x1b (27) rather
+ * than the native 0x1c. The upstream maxtouch-debug GUI speaks the unprefixed
+ * protocol and will NOT work through this tunnel -- use the host script. That
+ * costs nothing real: the GUI's register-write UI is unfinished anyway, and it
+ * cannot run with VIA enabled regardless.
+ */
+#if defined(VIA_ENABLE)
 #    include "via.h"
+#    include "i2c_master.h"
 #    include "drivers/sensors/maxtouch.h"
 
 #    define MXT_TUNNEL_PREFIX 0x4D
+#    define MXT_TUNNEL_MAX_PAYLOAD 0x1b
+
+/*
+ * Opcodes. Copied from the driver's own debug protocol so the host script
+ * and the upstream maxtouch-debug tool speak the same language, minus the
+ * prefix byte. Kept here rather than #included because maxtouch.c declares
+ * them inside `#ifdef MAXTOUCH_DEBUG`, and we deliberately leave that flag
+ * OFF -- see the comment block above.
+ */
+enum {
+    MXT_DBG_CHECK_VERSION = 0,
+    MXT_DBG_COMMAND       = 1,
+    MXT_DBG_READ          = 2,
+    MXT_DBG_WRITE         = 3,
+};
+enum { MXT_DBG_CMD_REBOOT_BOOTLOADER = 0, MXT_DBG_CMD_SET_MOUSE_MODE, MXT_DBG_CMD_GET_MOUSE_MODE };
+enum { MXT_DBG_OK = 0, MXT_DBG_INVALID_VERSION, MXT_DBG_INVALID_CMD, MXT_DBG_INVALID_LENGTH, MXT_DBG_I2C_ERR };
+
+#    define MXT_DBG_MAGIC 0x9A4D
+#    define MXT_DBG_VERSION 0x0001
+
+/* Owned by digitizer.c; the driver reaches it the same way. */
+extern bool digitizer_send_mouse_reports;
+
+static void mxt_tunnel_process(uint8_t *data, uint8_t length) {
+    uint8_t status = MXT_DBG_OK;
+
+    switch (data[0]) {
+        case MXT_DBG_CHECK_VERSION: {
+            const uint16_t magic   = (data[1] << 8) | data[2];
+            const uint16_t version = (data[3] << 8) | data[4];
+            if (magic != MXT_DBG_MAGIC || version != MXT_DBG_VERSION) {
+                status = MXT_DBG_INVALID_VERSION;
+            }
+            break;
+        }
+        case MXT_DBG_COMMAND: {
+            switch (data[1]) {
+                case MXT_DBG_CMD_REBOOT_BOOTLOADER:
+                    reset_keyboard();
+                    break;
+                case MXT_DBG_CMD_SET_MOUSE_MODE:
+                    digitizer_send_mouse_reports = (bool)data[2];
+                    break;
+                case MXT_DBG_CMD_GET_MOUSE_MODE:
+                    data[1] = digitizer_send_mouse_reports;
+                    break;
+                default:
+                    status = MXT_DBG_INVALID_CMD;
+                    break;
+            }
+            break;
+        }
+        case MXT_DBG_READ: {
+            const uint16_t addr = (data[1] << 8) | data[2];
+            const uint16_t len  = data[3];
+            /* Bounds-check against the ACTUAL buffer, not just the protocol
+             * max. Upstream checks only `len > 0x1c` and would overread a
+             * short report; that is a real upstream bug (worth a PR) and
+             * costs us nothing to get right here. */
+            if (len > MXT_TUNNEL_MAX_PAYLOAD || len + 4 > length) {
+                status = MXT_DBG_INVALID_LENGTH;
+            } else if (i2c_read_register16(MXT336UD_ADDRESS, addr, &data[4], len, MXT_I2C_TIMEOUT_MS) != I2C_STATUS_SUCCESS) {
+                status = MXT_DBG_I2C_ERR;
+            }
+            break;
+        }
+        case MXT_DBG_WRITE: {
+            const uint16_t addr = (data[1] << 8) | data[2];
+            const uint16_t len  = data[3];
+            if (len > MXT_TUNNEL_MAX_PAYLOAD || len + 4 > length) {
+                status = MXT_DBG_INVALID_LENGTH;
+            } else if (i2c_write_register16(MXT336UD_ADDRESS, addr, &data[4], len, MXT_I2C_TIMEOUT_MS) != I2C_STATUS_SUCCESS) {
+                status = MXT_DBG_I2C_ERR;
+            }
+            break;
+        }
+        default:
+            status = MXT_DBG_INVALID_CMD;
+            break;
+    }
+
+    data[0] = status;
+}
 
 void raw_hid_receive_kb(uint8_t *data, uint8_t length) {
-    if (data[0] == MXT_TUNNEL_PREFIX) {
-        maxtouch_debug_hid_receive(data + 1, length - 1);
+    if (length > 1 && data[0] == MXT_TUNNEL_PREFIX) {
+        mxt_tunnel_process(data + 1, length - 1);
+        /* VIA sends the buffer back for us -- do NOT call raw_hid_send. */
     } else {
         data[0] = id_unhandled;
     }
