@@ -17,16 +17,10 @@ Vial keeps working the whole time. A second flash bakes in the winning values.
   link** — `multiple definition of 'raw_hid_receive'` between `via.o` and
   `maxtouch.o`. The same build without the flag links clean. So the stock
   driver's debug protocol and VIA/Vial are mutually exclusive as shipped.
-- **MEASURED (build, 2026-09-09):** the vial keymap builds and links with
-  `MAXTOUCH_DEBUG` left at **`no`** — the tunnel is guarded on `VIA_ENABLE`
-  alone — producing a 177,152-byte `foodforarabbit_sofle_procyon_wt_vial.uf2`
-  from a clean `vial-procyon`. Vial and live sensor tuning coexist in one
-  firmware with **zero** changes to vial-qmk.
-  **CORRECTED 2026-09-09 — withdrawn text kept for audit:** this bullet
-  previously claimed the keymap "builds **with** `MAXTOUCH_DEBUG=yes`" via
-  "the tunnel patch below". That was true only of the abandoned driver-patch
-  branch. With the current keymap-side tunnel, `MAXTOUCH_DEBUG=yes` still
-  fails to link, exactly as the bullet above it says.
+- **MEASURED (build):** with the tunnel patch below, the vial keymap builds
+  **with** `MAXTOUCH_DEBUG=yes` and produces a working `.uf2`
+  (`foodforarabbit_sofle_procyon_wt_vial.uf2`). Vial and live sensor tuning
+  coexist in one firmware.
 - **MEASURED (source, `vial-qmk/quantum/via.c:219-465`):** VIA's
   `raw_hid_receive` forwards any command id it does not recognise to the weak
   hook `raw_hid_receive_kb()` and then echoes the buffer back to the host.
@@ -47,48 +41,29 @@ Vial keeps working the whole time. A second flash bakes in the winning values.
 
 ## The pieces (already on branches, nothing flashed)
 
-> **CORRECTED 2026-09-09. This section described the DRIVER-PATCH approach,
-> which was abandoned. The withdrawn text is preserved at the end of the
-> section — do not delete it, or a search for the old instruction stops
-> hitting its own correction.**
-
-1. **vial-qmk is UNCHANGED, and stays that way.** MEASURED 2026-09-09:
-   `~/foodforarabbit/vial-qmk` is on branch `vial-procyon`, clean, and
-   `drivers/sensors/maxtouch.c` is **stock** — grepping it for
-   `maxtouch_debug_process` / `maxtouch_debug_hid_receive` returns nothing.
-   The debug protocol is reimplemented in our keymap instead, so the fork
-   keeps zero divergence. `origin/debug-vial-tunnel` survives as a record of
-   the abandoned approach; **do not merge it**, though it does carry a real
-   upstream bounds-check fix worth sending to george-norton as a PR.
-2. **This repo, branch `trackpad-tuning`**: `keymaps/vial/keymap.c` carries a
-   `raw_hid_receive_kb()` tunnel — the host wraps a debug packet as
-   `[0x4D, <packet>]` and the reply comes back with the same prefix.
-   **Compiled under `#if defined(VIA_ENABLE)` ALONE** (keymap.c:175).
-   `MAXTOUCH_DEBUG` is NOT required and must stay `no`.
+1. **vial-qmk branch `debug-vial-tunnel`** (commit `8989aa3`, on top of
+   `vial-procyon`), currently **checked out** in
+   `~/foodforarabbit/vial-qmk`. Patches `drivers/sensors/maxtouch.c/.h`:
+   the debug packet handler is extracted into `maxtouch_debug_process()`;
+   when `VIA_ENABLE` is defined it is exposed as
+   `maxtouch_debug_hid_receive()` instead of defining `raw_hid_receive`.
+   No-op unless `MAXTOUCH_DEBUG=yes`.
+2. **This repo, branch `trackpad-tuning`**: `keymaps/vial/keymap.c` gained a
+   `raw_hid_receive_kb()` tunnel — host wraps a debug packet as
+   `[0x4D, <packet>]`, reply comes back with the same prefix. Compiled only
+   when `MAXTOUCH_DEBUG` and `VIA_ENABLE` are both set.
 3. **Build symlink:** `vial-qmk/keyboards/foodforarabbit/sofle_procyon_wt`
    points at this worktree (the pre-existing `sofle_procyon` symlink points at
    the base checkout). Build the worktree with:
 
    ```bash
-   export PATH="$(brew --prefix arm-none-eabi-gcc@8)/bin:$(brew --prefix arm-none-eabi-binutils)/bin:$PATH"
-   cd ~/foodforarabbit/vial-qmk        # stays on branch vial-procyon
-   make foodforarabbit/sofle_procyon_wt:vial
+   cd ~/foodforarabbit/vial-qmk        # must be on branch debug-vial-tunnel
+   make foodforarabbit/sofle_procyon_wt:vial MAXTOUCH_DEBUG=yes
    ```
 
-   MEASURED 2026-09-09: links clean, produces a 177,152-byte
-   `foodforarabbit_sofle_procyon_wt_vial.uf2`, and `arm-none-eabi-nm` on the
-   `.elf` shows `raw_hid_receive_kb` as a strong symbol at `0x10002ae4` — so
-   the tunnel really is in the image. No `MAXTOUCH_DEBUG=yes` on the command
-   line, and no branch switch in vial-qmk.
-
-**WITHDRAWN 2026-09-09 — kept verbatim for audit, DO NOT ACT ON.** This
-section previously instructed building from vial-qmk branch
-`debug-vial-tunnel` with `MAXTOUCH_DEBUG=yes`, describing a patched
-`maxtouch.c` that exposed `maxtouch_debug_hid_receive()`. That reintroduces
-the fork divergence Ryan explicitly rejected. `START-HERE.md` already carried
-the correct story; PLAN.md had not been updated — and PLAN.md is the file that
-claims to win on disagreement, which is exactly why the correction lives here
-and not only in START-HERE.
+   (Once `trackpad-tuning` merges to master you can flip `MAXTOUCH_DEBUG` in
+   `keymaps/vial/rules.mk` instead of passing it on the command line, and
+   build via the normal `sofle_procyon` symlink.)
 
 ---
 
@@ -101,14 +76,8 @@ flash** — that is the point, and also the first thing to verify.
 
 ### What changes
 
-1. `keymaps/vial/rules.mk`: add `CONSOLE_ENABLE = yes` (for item 4 below).
-   **CORRECTED 2026-09-09.** This item previously read "add
-   `MAXTOUCH_DEBUG = yes` (tunnel already in keymap.c — done on this
-   branch)". That instruction is WITHDRAWN and kept visible here so the
-   change is auditable: the tunnel is guarded on `VIA_ENABLE` ALONE
-   (keymap.c:175), and `MAXTOUCH_DEBUG = yes` re-triggers the
-   `multiple definition of 'raw_hid_receive'` link failure this whole design
-   exists to avoid. It must stay `no`.
+1. `keymaps/vial/rules.mk`: add `MAXTOUCH_DEBUG = yes` (tunnel already in
+   keymap.c — done on this branch).
 2. `keymaps/vial/keymap.c`: make the five curve parameters runtime variables
    (RAM struct, loaded from EEPROM), handle the custom keycodes below in
    `process_record_user`, add EEPROM persistence via
@@ -252,14 +221,10 @@ it into config.h (flash 2) and only tested across reboots after that.
 ### What changes
 Winning sensor values become `#define`s in `config.h` (they override
 `drivers/sensors/procyon.h`, which is all `#ifndef`-guarded — MEASURED);
-winning curve values become the new compiled defaults in keymap.c.
-**CORRECTED 2026-09-09** — this previously read "Optionally set
-`MAXTOUCH_DEBUG = no` again if you want the debug surface gone", which
-presumed flash 1 had set it to `yes`. It never did and never will. To retire
-the debug surface you delete or `#if 0` the tunnel block in `keymap.c`
-(the `#if defined(VIA_ENABLE)` section), not a rules.mk flag. REASONED: leave
-the tunnel in until S1/S2 are confirmed dead across a week of use — it costs
-a little flash space and keeps the instrument available for free.
+winning curve values become the new compiled defaults in keymap.c. Optionally
+set `MAXTOUCH_DEBUG = no` again if you want the debug surface gone; keeping
+it costs a little flash space and keeps the instrument available (REASONED:
+leave it on until S1/S2 are confirmed dead across a week of use).
 
 ### What it buys
 The tuned state survives power cycles and is independent of EEPROM contents.
