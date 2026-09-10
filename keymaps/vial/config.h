@@ -66,5 +66,29 @@
  * taps must be a little steadier, double-taps a little quicker.
  */
 #undef DIGITIZER_MOUSE_TAP_DISTANCE
-#define DIGITIZER_MOUSE_TAP_DISTANCE 25
+#define DIGITIZER_MOUSE_TAP_DISTANCE 50
 #define DIGITIZER_MOUSE_TAP_DETECTION_TIMEOUT 120
+
+/*
+ * TAP_DISTANCE back to 50 -- REVERTING MY OWN FLASH-2 CHANGE.
+ *
+ * Flash 2 lowered it to 25 to shorten the two-finger-scroll dead zone. That was
+ * wrong twice over: it targeted the wrong branch of the state machine (the gate
+ * is `Down`, not `Tapped`), and 50 was not arbitrary -- it was tuned for how
+ * Ryan actually taps.
+ *
+ * MEASURED at 25: his taps drift 28-66 accumulated units over 53-82ms, and 6 of
+ * 8 logged contacts emitted movement INSTEAD OF CLICKING. Roughly half his taps
+ * silently failed, which he reported as the tap feeling "laggy" -- it was not
+ * latency, it was retries.
+ *
+ * The scroll dead zone this was chasing is now fixed properly in the driver
+ * (branch procyon-tap-scroll-fix): two fingers landing goes straight to
+ * MoveScroll and no longer has to satisfy the tap-rejection tests. So this
+ * threshold serves only tap classification again, which is the one job it can
+ * actually do.
+ *
+ * TIMEOUT stays at 120 (driver default 200). With the driver fix it no longer
+ * gates two-finger scroll; it now only sets tap-click latency and single-finger
+ * move onset, and lower is better for both.
+ */

@@ -52,7 +52,12 @@ Vial keeps working the whole time. A second flash bakes in the winning values.
 > section — do not delete it, or a search for the old instruction stops
 > hitting its own correction.**
 
-1. **vial-qmk is UNCHANGED, and stays that way.** MEASURED 2026-09-09:
+1. **vial-qmk carries ONE commit as of 2026-09-10** — branch
+   `procyon-tap-scroll-fix`, 26 lines in `quantum/digitizer_mouse_fallback.c`,
+   added with Ryan's explicit approval after measurement showed no config value
+   could fix the two-finger-scroll dead zone without breaking tap reliability.
+   `vial-procyon` remains pristine. The text below described the state up to
+   2026-09-09 and is otherwise still accurate. MEASURED 2026-09-09:
    `~/foodforarabbit/vial-qmk` is on branch `vial-procyon`, clean, and
    `drivers/sensors/maxtouch.c` is **stock** — grepping it for
    `maxtouch_debug_process` / `maxtouch_debug_hid_receive` returns nothing.
@@ -71,7 +76,7 @@ Vial keeps working the whole time. A second flash bakes in the winning values.
 
    ```bash
    export PATH="$(brew --prefix arm-none-eabi-gcc@8)/bin:$(brew --prefix arm-none-eabi-binutils)/bin:$PATH"
-   cd ~/foodforarabbit/vial-qmk        # stays on branch vial-procyon
+   cd ~/foodforarabbit/vial-qmk        # branch procyon-tap-scroll-fix
    make foodforarabbit/sofle_procyon_wt:vial
    ```
 

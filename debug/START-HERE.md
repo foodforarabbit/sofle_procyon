@@ -35,13 +35,19 @@ remaining work is ~200 lines in `keymaps/vial/keymap.c`, a JSON block, two
 | repo | branch | holds |
 |---|---|---|
 | `foodforarabbit/sofle_procyon` | `trackpad-tuning` | all of `debug/`, this file, and the tunnel |
-| `foodforarabbit/vial-qmk` | `vial-procyon` | **unchanged — build from this, the normal branch** |
+| `foodforarabbit/vial-qmk` | `procyon-tap-scroll-fix` | **BUILD FROM THIS** (2026-09-10). `vial-procyon` is still pristine. |
 
-**vial-qmk needs NO changes.** Ryan's requirement is that the fork stays close
-to what it branched from, so the tunnel lives entirely in
-`keymaps/vial/keymap.c` and `MAXTOUCH_DEBUG` stays `no`. MEASURED: builds and
-links on a clean `vial-procyon`, producing
-`foodforarabbit_sofle_procyon_wt_vial.uf2`.
+**vial-qmk now carries exactly ONE commit, added 2026-09-10 with Ryan's
+explicit approval** (`procyon-tap-scroll-fix`, 26 lines in
+`quantum/digitizer_mouse_fallback.c`). It fixes two upstream state-machine
+defects that no config value could reach: two-finger scroll having to satisfy
+the tap-rejection tests, and the contact-count-change frame emitting a
+centroid jump as movement. `vial-procyon` is untouched and still builds.
+
+Everything else still lives in `keymaps/vial/keymap.c` and `MAXTOUCH_DEBUG`
+stays `no`. The zero-changes rule held for the whole tunnel and register-tuning
+effort; it was relaxed only for a defect that is genuinely upstream's and is
+worth sending to george-norton.
 
 `origin/debug-vial-tunnel` exists as a record of the driver-patch approach that
 was tried first. **Do not merge it** — it is superseded and would reintroduce
