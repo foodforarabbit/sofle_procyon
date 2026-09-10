@@ -8,9 +8,15 @@
 #   1. arm-none-eabi-gcc@8 is brew KEG-ONLY, so it is not on PATH. You get
 #      "arm-none-eabi-gcc: command not found" and Error 127, which reads like
 #      a missing toolchain rather than a missing PATH entry.
-#   2. vial-qmk must be on `vial-procyon`. On `debug-vial-tunnel` the driver
-#      also defines raw_hid_receive and the link fails with "multiple
-#      definition"; on the plain `vial` branch the MaxTouch driver is absent.
+#   2. vial-qmk must be on `procyon-tap-scroll-fix` (was `vial-procyon` until
+#      2026-09-10, when the fork took its first commits with Ryan's approval).
+#      On `debug-vial-tunnel` the driver also defines raw_hid_receive and the
+#      link fails with "multiple definition"; on the plain `vial` branch the
+#      MaxTouch driver is absent; on `vial-procyon` the digitizer gesture fixes
+#      are missing and two-finger scroll/tap misbehave.
+#   5. Vial randomises BUILD_ID per build unless VIAL_BUILD_ID is set, and
+#      via_eeprom_is_valid() compares the stored layout magic against it -- so
+#      an unpinned build WIPES the user's keymap on every flash. Pinned below.
 #   3. QMK builds from keyboards/<vendor>/<board>, so the worktree has to be
 #      symlinked in. Without it, make says the keyboard does not exist.
 #   4. The base checkout and this worktree are different trees, and both are
@@ -22,9 +28,24 @@
 set -euo pipefail
 
 WORKTREE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# --- 5. PINNED BUILD_ID -------------------------------------------------
+# via_eeprom_is_valid() (vial-qmk quantum/via.c:96-106) compares the stored
+# VIA/Vial EEPROM magic against BUILD_ID, and util/build_id.py randomises it on
+# every build. That wipes the user's layout on EVERY flash -- observed four
+# times in a row, including flashes that changed neither vial.json nor the
+# eeconfig layout.
+#
+# Pinning makes the check mean what it should: the layout is invalidated when
+# the LAYOUT changes, not when the clock ticks.
+#
+# BUMP THIS DELIBERATELY, and only when the Vial layout genuinely changes --
+# vial.json customKeycodes, the matrix, or EECONFIG_USER_DATA_SIZE. Bumping it
+# costs the user their key assignments, so it is not a routine act.
+export VIAL_BUILD_ID="${VIAL_BUILD_ID:-0x50F1E1}"
 QMK="${QMK_DIR:-$HOME/foodforarabbit/vial-qmk}"
 KB_NAME="sofle_procyon_wt"
-REQUIRED_BRANCH="vial-procyon"
+REQUIRED_BRANCH="procyon-tap-scroll-fix"
 TARGET="foodforarabbit/${KB_NAME}:vial"
 
 say() { printf '\033[36m==>\033[0m %s\n' "$*"; }
@@ -83,6 +104,7 @@ say "toolchain $(arm-none-eabi-gcc --version | head -1)"
 cd "$QMK"
 [ "${1:-}" = "--clean" ] && { say "removing .build"; rm -rf .build; }
 
+say "VIAL_BUILD_ID=$VIAL_BUILD_ID (pinned — layout survives rebuilds)"
 say "make $TARGET"
 make "$TARGET"
 
@@ -95,3 +117,5 @@ echo "  git sha:  $(git -C "$WORKTREE" rev-parse --short HEAD)"
 echo "  uf2:      $(basename "$uf2")"
 echo "  built:    $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "  MAXTOUCH_DEBUG: $(grep -E '^MAXTOUCH_DEBUG' "$WORKTREE/rules.mk" | awk '{print $3}')"
+echo "  BUILD_ID:       $VIAL_BUILD_ID"
+echo "  vial-qmk:       $(git -C "$QMK" rev-parse --short HEAD) on $branch"
