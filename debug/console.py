@@ -51,6 +51,7 @@ def main():
     dev.open_path(ifaces[0]["path"])
     dev.set_nonblocking(1)
 
+    t0 = time.monotonic()
     print(f"# console attached  {time.strftime('%H:%M:%S')}", flush=True)
     print("# move a finger on the trackpad. Ctrl-C to stop.", flush=True)
 
@@ -67,12 +68,12 @@ def main():
             while "\n" in buf:
                 line, buf = buf.split("\n", 1)
                 if line.strip():
-                    print(f"{time.strftime('%H:%M:%S')} {line}", flush=True)
+                    print(f"{(time.monotonic()-t0)*1000:9.1f} {line}", flush=True)
     except KeyboardInterrupt:
         pass
     finally:
         if buf.strip():
-            print(f"{time.strftime('%H:%M:%S')} {buf}", flush=True)
+            print(f"{(time.monotonic()-t0)*1000:9.1f} {buf}", flush=True)
         dev.close()
 
 
