@@ -19,7 +19,7 @@
  * VIA/Vial EEPROM including key assignments on first boot. Export the layout
  * from the Vial GUI (File -> Save current layout) BEFORE flashing.
  */
-#define EECONFIG_USER_DATA_SIZE 12
+#define EECONFIG_USER_DATA_SIZE 16
 
 /*
  * Scroll division moves into the keymap so it becomes a runtime knob.
@@ -30,3 +30,41 @@
  */
 #undef DIGITIZER_SCROLL_DIVISOR
 #define DIGITIZER_SCROLL_DIVISOR 1
+
+/*
+ * FLASH 2 -- sensor + gesture fixes, all MEASURED on flash 1.
+ */
+
+/* The jitter fix. movhystn shipped at 16 against a driver default of 4, so
+ * next-move hysteresis batched sub-threshold drift and released it in
+ * quantised 17-unit dumps. Live-writing 4 took the worst pointer jump from
+ * 15px to 4px and halved the escape rate. Baked here because sensor registers
+ * are rewritten from compiled values at EVERY boot -- a live write does not
+ * survive a power cycle, which is the whole reason this flash exists.
+ * See debug/sessions/2026-09-10-01.md. */
+/* NOT settable here: procyon.h:30 defines MXT_MOVE_HYSTERESIS_NEXT with no
+ * per-define #ifndef guard, so this collides (-Werror: "redefined"). PLAN.md
+ * claimed procyon.h was "all #ifndef-guarded -- MEASURED"; the 5 #ifndef lines
+ * in it are board-SELECTION guards, not per-define guards. Applied from
+ * keymap.c at every boot over i2c instead, which keeps vial-qmk at zero
+ * changes and survives power cycles just the same. */
+
+/*
+ * The two-finger-scroll dead zone.
+ *
+ * This board raised DIGITIZER_MOUSE_TAP_DISTANCE to 50, double the driver
+ * default of 25. digitizer_mouse_fallback.c:190-201 only escapes `Down` to
+ * `MoveScroll` if distance exceeds it, so at 50 a short quick drag never
+ * qualifies and falls into `Tapped` on lift. In `Tapped` (lines 228-243) two
+ * fingers arriving within the timeout match NO branch -- not contacts==0, not
+ * duration>timeout -- so the state machine sits there ignoring them until the
+ * timeout expires. That is the "buffer time" where a fast move-then-scroll
+ * gets swallowed.
+ *
+ * 25 restores the driver default so real moves are classified as moves; 120ms
+ * shortens the dead window for the cases that still land in `Tapped`. Cost:
+ * taps must be a little steadier, double-taps a little quicker.
+ */
+#undef DIGITIZER_MOUSE_TAP_DISTANCE
+#define DIGITIZER_MOUSE_TAP_DISTANCE 25
+#define DIGITIZER_MOUSE_TAP_DETECTION_TIMEOUT 120

@@ -229,22 +229,22 @@
     {
       "name": "Jitter thresh +",
       "shortName": "JIT+",
-      "title": "Jitter threshold +1 (0-15, default 5); deltas at/below are dropped"
+      "title": "Jitter threshold +1 on BOTH axes (0-15, default 7); per-axis keys below"
     },
     {
       "name": "Jitter thresh -",
       "shortName": "JIT-",
-      "title": "Jitter threshold -1"
+      "title": "Jitter threshold -1 on BOTH axes"
     },
     {
       "name": "Slow limit +",
       "shortName": "SLL+",
-      "title": "Precision-zone limit +1 (1-30, default 12)"
+      "title": "Precision-zone limit +1 on BOTH axes (1-40, default 20); per-axis below"
     },
     {
       "name": "Slow limit -",
       "shortName": "SLL-",
-      "title": "Precision-zone limit -1"
+      "title": "Precision-zone limit -1 on BOTH axes"
     },
     {
       "name": "Slow speed +",
@@ -267,14 +267,14 @@
       "title": "Fast-zone speed -10%"
     },
     {
-      "name": "Scroll divisor +",
+      "name": "Scroll SLOWER (divisor +)",
       "shortName": "SCR+",
-      "title": "Scroll divisor +5, less sensitive (5-100, default 35)"
+      "title": "Scroll divisor +5 = SLOWER scrolling (5-100, default 100)"
     },
     {
-      "name": "Scroll divisor -",
+      "name": "Scroll FASTER (divisor -)",
       "shortName": "SCR-",
-      "title": "Scroll divisor -5, more sensitive"
+      "title": "Scroll divisor -5 = FASTER scrolling"
     },
     {
       "name": "Smoothing +",
@@ -310,6 +310,71 @@
       "name": "Mouse reports",
       "shortName": "MSTG",
       "title": "Toggle digitizer mouse reports (recovery if a debug script left them off)"
+    },
+    {
+      "name": "Scroll invert",
+      "shortName": "SINV",
+      "title": "Toggle scroll direction"
+    },
+    {
+      "name": "Directional gate",
+      "shortName": "DIRG",
+      "title": "Toggle the directional jitter gate (default ON) - the flash-2 fix"
+    },
+    {
+      "name": "Smooth curve",
+      "shortName": "CRV",
+      "title": "Toggle continuous gain curve vs piecewise (default piecewise)"
+    },
+    {
+      "name": "Dir strictness +",
+      "shortName": "DOP+",
+      "title": "Opposing-delta threshold multiplier +1 (2-8, default 3); higher = kills more reversals"
+    },
+    {
+      "name": "Dir strictness -",
+      "shortName": "DOP-",
+      "title": "Opposing-delta threshold multiplier -1"
+    },
+    {
+      "name": "Jitter X +",
+      "shortName": "JTX+",
+      "title": "Horizontal jitter threshold +1 (0-15, default 7)"
+    },
+    {
+      "name": "Jitter X -",
+      "shortName": "JTX-",
+      "title": "Horizontal jitter threshold -1"
+    },
+    {
+      "name": "Jitter Y +",
+      "shortName": "JTY+",
+      "title": "Vertical jitter threshold +1 (0-15, default 7)"
+    },
+    {
+      "name": "Jitter Y -",
+      "shortName": "JTY-",
+      "title": "Vertical jitter threshold -1"
+    },
+    {
+      "name": "Slow limit X +",
+      "shortName": "SLX+",
+      "title": "Horizontal precision-zone limit +1 (1-40, default 20)"
+    },
+    {
+      "name": "Slow limit X -",
+      "shortName": "SLX-",
+      "title": "Horizontal precision-zone limit -1"
+    },
+    {
+      "name": "Slow limit Y +",
+      "shortName": "SLY+",
+      "title": "Vertical precision-zone limit +1 (1-40, default 20)"
+    },
+    {
+      "name": "Slow limit Y -",
+      "shortName": "SLY-",
+      "title": "Vertical precision-zone limit -1"
     }
   ]
 }
