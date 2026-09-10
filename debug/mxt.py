@@ -124,16 +124,85 @@ def cmd_check_version(dev, _args):
     print("OK -- tunnel alive, magic and version accepted")
 
 
+# ---------------------------------------------------------------------------
+# UPSTREAM BUG WORKAROUND: the debug protocol's register address is byte-swapped
+# relative to what the sensor wants.
+#
+# MEASURED 2026-09-10 on hardware. A read at address 0 works; a read at ANY
+# non-zero address returns all zeros with status OK -- and 0 is the one value
+# that is byte-order-agnostic, which is what gives the cause away.
+#
+# The cause is in the driver, not here. maxtouch.c:643 builds
+# `read_address = (data[1] << 8) | data[2]` and hands it straight to
+# i2c_read_register16, while the SAME FILE at :220 wraps its address in
+# SWAP_BYTES() for the identical call during init. maXTouch wants the register
+# pointer little-endian; i2c_read_register16 transmits big-endian; so the swap
+# is required and the debug path omits it. Our keymap tunnel copied that
+# handler faithfully and inherited the bug.
+#
+# Proof: with the address pre-swapped, a 6-byte read at 0x0700 returns exactly
+# the bytes that a 27-byte read from address 0 shows sitting at offset 7.
+#
+# Rather than hardcode the workaround, probe for it once per run: read the first
+# object-table entry two ways and keep whichever matches the entry we can see
+# inside a single read from address 0 (which is correct either way). That means
+# this script keeps working unchanged when the firmware is fixed at flash 2 --
+# no flag day, and no silently-wrong reads if someone forgets.
+_SWAP = None
+
+
+def _raw_read(dev, addr, length):
+    reply = request(dev, [CMD_READ, addr >> 8, addr & 0xFF, length])
+    return reply[5 : 5 + length]  # payload after prefix+status+addr+len
+
+
+def _detect_swap(dev):
+    """True if the firmware needs the address pre-swapped."""
+    global _SWAP
+    if _SWAP is not None:
+        return _SWAP
+
+    # A single read from address 0 is correct under either convention, and it
+    # spans the 7-byte header plus the first table entries.
+    window = _raw_read(dev, 0x0000, 13)
+    truth = window[7:13]
+
+    plain = _raw_read(dev, 0x0007, 6)
+    if plain == truth:
+        _SWAP = False
+    elif _raw_read(dev, 0x0700, 6) == truth:
+        _SWAP = True
+        print(
+            "note: firmware needs byte-swapped register addresses "
+            "(upstream maxtouch.c:643 omits SWAP_BYTES) -- compensating",
+            file=sys.stderr,
+        )
+    else:
+        sys.exit(
+            "cannot determine address byte order -- neither 0x0007 nor 0x0700 "
+            f"matched the info-block window.\n  window[7:13] = {truth.hex(' ')}\n"
+            f"  read(0x0007)  = {plain.hex(' ')}\n"
+            "Something else is wrong; do not trust any register value."
+        )
+    return _SWAP
+
+
 def read_bytes(dev, addr, length):
     if not 1 <= length <= MAX_PAYLOAD:
         sys.exit(f"length must be 1..{MAX_PAYLOAD} through the tunnel (got {length})")
-    reply = request(dev, [CMD_READ, addr >> 8, addr & 0xFF, length])
-    return reply[5 : 5 + length]  # payload starts after prefix+status+addr+len
+    if addr != 0 and _detect_swap(dev):
+        addr = ((addr << 8) & 0xFF00) | ((addr >> 8) & 0xFF)
+    return _raw_read(dev, addr, length)
 
 
 def write_bytes(dev, addr, data):
     if not 1 <= len(data) <= MAX_PAYLOAD:
         sys.exit(f"can write 1..{MAX_PAYLOAD} bytes through the tunnel")
+    # Same byte-order bug on the write path (maxtouch.c:660). Getting this
+    # wrong on a WRITE scribbles into an unrelated register, so the probe runs
+    # before every write rather than being assumed.
+    if addr != 0 and _detect_swap(dev):
+        addr = ((addr << 8) & 0xFF00) | ((addr >> 8) & 0xFF)
     request(dev, [CMD_WRITE, addr >> 8, addr & 0xFF, len(data), *data])
 
 
