@@ -85,7 +85,25 @@
  * "feels good", and a working right-click is worth more than the last 30% of
  * scroll onsets.
  *
- * The one thing kept from that work is the BUILD_ID pin in
+ * ONE OVERRIDE IS BACK, deliberately: TAP_DETECTION_TIMEOUT 120.
+ *
+ * The tap CLICK fires this long after you lift, because the driver waits to see
+ * whether a second tap arrives (digitizer_mouse_fallback.c:228-243). At the
+ * driver default of 200 that is a perceptible delay -- Ryan called it "kinda
+ * slow". 120 was in place for flashes 2-4 and he never reported latency then;
+ * what he reported was taps being DROPPED, which was TAP_DISTANCE, not this.
+ *
+ * Safe at 120 because his taps measured 53-82ms, well clear of it. The risk is
+ * a tap held longer than 120ms escaping `Down` into MoveScroll and moving the
+ * pointer instead of clicking; at 82ms worst-case measured, there is margin.
+ * Also shortens the double-tap window, so double-taps must be a little quicker.
+ *
+ * TAP_DISTANCE stays untouched at the board's 50 -- that one is load-bearing
+ * for tap reliability and is what I broke in flash 2.
+ *
+ * The other thing kept is the BUILD_ID pin in
  * vial-qmk util/build_id.py, which is what stops every flash wiping the Vial
  * layout. That is unrelated to gestures and is a genuine fix.
  */
+
+#define DIGITIZER_MOUSE_TAP_DETECTION_TIMEOUT 120
