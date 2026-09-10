@@ -65,30 +65,27 @@
  * shortens the dead window for the cases that still land in `Tapped`. Cost:
  * taps must be a little steadier, double-taps a little quicker.
  */
-#undef DIGITIZER_MOUSE_TAP_DISTANCE
-#define DIGITIZER_MOUSE_TAP_DISTANCE 50
-#define DIGITIZER_MOUSE_TAP_DETECTION_TIMEOUT 120
-
 /*
- * TAP_DISTANCE back to 50 -- REVERTING MY OWN FLASH-2 CHANGE.
+ * NO GESTURE OVERRIDES. Back to exactly what this board shipped.
  *
- * Flash 2 lowered it to 25 to shorten the two-finger-scroll dead zone. That was
- * wrong twice over: it targeted the wrong branch of the state machine (the gate
- * is `Down`, not `Tapped`), and 50 was not arbitrary -- it was tuned for how
- * Ryan actually taps.
+ * The board's own config.h already sets DIGITIZER_MOUSE_TAP_DISTANCE 50, and
+ * DIGITIZER_MOUSE_TAP_DETECTION_TIMEOUT is left at the driver default of 200.
  *
- * MEASURED at 25: his taps drift 28-66 accumulated units over 53-82ms, and 6 of
- * 8 logged contacts emitted movement INSTEAD OF CLICKING. Roughly half his taps
- * silently failed, which he reported as the tap feeling "laggy" -- it was not
- * latency, it was retries.
+ * WHY THESE ARE GONE. Flash 2 lowered TAP_DISTANCE to 25 to shorten the
+ * two-finger-scroll dead zone. That dropped roughly half of Ryan's taps
+ * (MEASURED: taps drift 28-66 units; 6 of 8 logged contacts emitted movement
+ * instead of clicking). Flash 3 restored 50 and moved the fix into the driver;
+ * flash 4 corrected that fix. Both driver changes are now REVERTED, because
+ * they broke two-finger right-click and two attempts to repair it were wrong:
+ * MEASURED, 12 of 15 two-finger contacts reached the tap path and still did not
+ * fire button2, so the multi-finger distance threshold was never the cause.
  *
- * The scroll dead zone this was chasing is now fixed properly in the driver
- * (branch procyon-tap-scroll-fix): two fingers landing goes straight to
- * MoveScroll and no longer has to satisfy the tap-rejection tests. So this
- * threshold serves only tap classification again, which is the one job it can
- * actually do.
+ * The trade being accepted: two-finger scroll onset returns to its bimodal
+ * behaviour, lagging ~30% of gestures by 100ms+. Ryan described that state as
+ * "feels good", and a working right-click is worth more than the last 30% of
+ * scroll onsets.
  *
- * TIMEOUT stays at 120 (driver default 200). With the driver fix it no longer
- * gates two-finger scroll; it now only sets tap-click latency and single-finger
- * move onset, and lower is better for both.
+ * The one thing kept from that work is the BUILD_ID pin in
+ * vial-qmk util/build_id.py, which is what stops every flash wiping the Vial
+ * layout. That is unrelated to gestures and is a genuine fix.
  */
